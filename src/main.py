@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Personal AI Architect - Main Runner
-Dual-domain, council-based, memory-backed AI system with NL interface
+Personal AI Architect - Enhanced with Skills
+Morning Briefings, Auto-Approve, Task Management, Health Monitoring
 """
 
 import os
@@ -13,14 +13,15 @@ from pathlib import Path
 src_dir = Path(__file__).parent
 sys.path.insert(0, str(src_dir.parent))
 
-from src.council import TrinityCouncil, Proposal, AgentRole
+from src.council import TrinityCouncil
 from src.memory import DualDomainMemory
 from src.cron.scheduler import CronScheduler, create_heartbeat_job, create_backup_job
-from src.channels.adapters import ChannelRouter, WebChatAdapter, NotificationManager
+from src.channels.adapters import ChannelRouter, WebChatAdapter
 from src.nl_parser import NLParser, ConversationManager
+from src.skills.morning_briefing import MorningBriefingSkill, AutoApproveRules, TaskManager, HealthMonitor
 
 class PersonalAIArchitect:
-    """Main Personal AI Architect system"""
+    """Enhanced Personal AI Architect with skills"""
     
     def __init__(self):
         self.started = datetime.now()
@@ -28,10 +29,15 @@ class PersonalAIArchitect:
         self.memory = DualDomainMemory()
         self.router = ChannelRouter()
         self.router.register("webchat", WebChatAdapter())
-        self.notifier = NotificationManager(self.router)
-        self.crons = CronScheduler()
         
-        # Initialize cron jobs
+        # Skills
+        self.briefing = MorningBriefingSkill()
+        self.auto_approve = AutoApproveRules()
+        self.tasks = TaskManager()
+        self.health = HealthMonitor()
+        
+        # Crons
+        self.crons = CronScheduler()
         self.crons.add_job(create_heartbeat_job())
         self.crons.add_job(create_backup_job())
         
@@ -39,24 +45,18 @@ class PersonalAIArchitect:
         self.active_domain = "personal"
         self.state_file = Path(__file__).parent.parent / "state" / "architect_state.json"
         
+    # Domain switching
     def switch_domain(self, domain: str):
-        """Switch between personal and work domains"""
         if domain in ["personal", "work"]:
             self.active_domain = domain
             return f"Switched to {domain} domain"
         return f"Unknown domain: {domain}"
     
-    def query_memory(self, query: str, domain: str = None) -> str:
-        """Query memory across domains"""
+    # Memory operations
+    def query_memory(self, query: str, domain: str = None):
         results = self.memory.query_all(query, domain or self.active_domain)
-        
         response = f"Query: '{query}'\n\n"
-        
-        if domain:
-            domain_name = domain
-        else:
-            domain_name = self.active_domain
-            
+        domain_name = domain or self.active_domain
         response += f"[{domain_name.upper()}]\n"
         
         if results.get(domain_name):
@@ -64,52 +64,56 @@ class PersonalAIArchitect:
                 response += f"- {r.content[:150]}\n"
         else:
             response += "No matching memories.\n"
-            
         return response
     
-    def add_memory(self, category: str, content: str, 
-                  importance: int = 3, tags: list = None):
-        """Add a memory"""
+    def remember(self, content: str, importance: int = 3, category: str = "note"):
         if self.active_domain == "personal":
-            self.memory.add_personal(category, content, importance, tags)
+            self.memory.add_personal(category, content, importance)
         else:
-            self.memory.add_work(category, content, importance, tags)
+            self.memory.add_work(category, content, importance)
         return f"✅ Saved to {self.active_domain} memory"
     
-    def submit_proposal(self, title: str, description: str,
-                       priority: int = 3, external_action: bool = False,
-                       estimated_cost: float = 0.0, risk_level: str = "low") -> str:
-        """Submit a proposal to the council"""
+    # Task management
+    def add_task(self, title: str, priority: int = 3):
+        return self.tasks.add(title, self.active_domain, priority)
+    
+    def list_tasks(self, domain: str = None):
+        return self.tasks.list(domain or self.active_domain)
+    
+    def complete_task(self, task_id: str):
+        return self.tasks.complete(task_id)
+    
+    # Proposals
+    def propose(self, title: str, description: str, priority: int = 3):
         proposal = self.council.submit_proposal(
             title=title,
             description=description,
             domain=self.active_domain,
-            priority=priority,
-            external_action=external_action,
-            estimated_cost=estimated_cost,
-            risk_level=risk_level
+            priority=priority
         )
-        
         decision = self.council.deliberated(proposal)
         
-        if decision["decision"] == "approved":
-            emoji = "✅"
-        elif decision["decision"] == "rejected":
-            emoji = "❌"
-        else:
-            emoji = "⏳"
-            
+        emoji = "✅" if decision["decision"] == "approved" else "❌" if decision["decision"] == "rejected" else "⏳"
         response = f"{emoji} **Proposal:** {title}\n"
         response += f"**Decision:** {decision['decision'].upper()}\n"
         response += f"**Reasoning:** {decision['reasoning']}\n"
         
         if decision.get('requires_human_approval'):
             response += "\n⚠️ **Requires human approval**"
-            
         return response
     
-    def get_status(self) -> str:
-        """Get system status"""
+    # Skills
+    def configure_briefing(self, **kwargs):
+        return self.briefing.configure(**kwargs)
+    
+    def generate_briefing(self):
+        return self.briefing.generate()
+    
+    def check_health(self):
+        return self.health.get_status()
+    
+    # Status
+    def get_status(self):
         return f"""# Personal AI Architect Status
 
 **Active Domain:** {self.active_domain}
@@ -120,45 +124,48 @@ class PersonalAIArchitect:
 - Personal entries: {len(self.memory.personal._entries)}
 - Work entries: {len(self.memory.work._entries)}
 
+**Tasks:** {len([t for t in self.tasks.tasks if t['status'] == 'pending'])} pending
+
 **Council:**
 - Pending proposals: {len(self.council.get_pending_proposals())}
 - Total decisions: {len(self.council.decisions)}
 
+**Skills:**
+- Morning Briefing: ✅
+- Auto-Approve: ✅
+- Task Manager: ✅
+- Health Monitor: ✅
+
 **Cron Jobs:** {len(self.crons.jobs)} registered
 """
     
-    def run_crons(self) -> str:
-        """Run any due cron jobs"""
+    def run_crons(self):
         due = self.crons.get_due_jobs()
-        
         if not due:
             return "No cron jobs due right now."
-            
         results = []
         for job in due:
             result = self.crons.run_job(job)
             status = "✅" if result["success"] else "❌"
-            results.append(f"{status} {job.name}: {result.get('status', 'unknown')}")
-            
+            results.append(f"{status} {job.name}")
         return "\n".join(results)
     
+    # Persistence
     def save_state(self):
-        """Save current state"""
         state = {
             "active_domain": self.active_domain,
             "started": self.started.isoformat(),
             "pending_proposals": len(self.council.get_pending_proposals()),
-            "memory_entries_personal": len(self.memory.personal._entries),
-            "memory_entries_work": len(self.memory.work._entries),
+            "memory_personal": len(self.memory.personal._entries),
+            "memory_work": len(self.memory.work._entries),
+            "tasks_pending": len([t for t in self.tasks.tasks if t['status'] == 'pending']),
             "last_saved": datetime.now().isoformat()
         }
-        
+        import json
         with open(self.state_file, 'w') as f:
-            import json
             json.dump(state, f, indent=2)
-            
+    
     def load_state(self):
-        """Load previous state"""
         if self.state_file.exists():
             import json
             with open(self.state_file, 'r') as f:
@@ -167,10 +174,10 @@ class PersonalAIArchitect:
             return True
         return False
 
+
 def main():
-    """Main entry point"""
     print("=" * 60)
-    print("🤖 Personal AI Architect")
+    print("🤖 Personal AI Architect - Enhanced Edition")
     print("=" * 60)
     
     architect = PersonalAIArchitect()
@@ -182,13 +189,12 @@ def main():
     conversation = ConversationManager(architect)
     
     print("\n" + "=" * 60)
-    print("Talk to me naturally! Examples:")
-    print("  • 'Switch to work mode'")
-    print("  • 'Remember that I hate meetings'")
-    print("  • 'What do I remember about projects?'")
-    print("  • 'We should automate backups'")
-    print("  • 'How are you?'")
-    print("  • 'Help'")
+    print("New Skills Available:")
+    print("  • 'Give me a morning briefing'")
+    print("  • 'Add task: Review proposals'")
+    print("  • 'What are my tasks?'")
+    print("  • 'Check system health'")
+    print("  • 'Configure briefing for SF weather'")
     print("=" * 60)
     
     # Interactive loop
@@ -204,14 +210,41 @@ def main():
                 print("Goodbye! 👋")
                 break
             
-            # Process as natural language
+            # Handle special commands
+            if cmd.lower() in ["briefing", "morning briefing", "give me a morning briefing"]:
+                print(f"\n{architect.generate_briefing()}")
+                continue
+            elif cmd.lower() in ["health", "check health", "system health"]:
+                print(f"\n{architect.check_health()}")
+                continue
+            elif cmd.lower().startswith("task ") or cmd.lower().startswith("add task "):
+                task = cmd.replace("add task ", "").replace("task ", "").strip()
+                print(f"\n{architect.add_task(task)}")
+                continue
+            elif cmd.lower() in ["tasks", "list tasks", "show tasks", "what are my tasks"]:
+                print(f"\n{architect.list_tasks()}")
+                continue
+            elif cmd.lower().startswith("complete ") or cmd.lower().startswith("done "):
+                task_id = cmd.replace("complete ", "").replace("done ", "").strip()
+                print(f"\n{architect.complete_task(task_id)}")
+                continue
+            elif cmd.lower().startswith("configure briefing"):
+                # Parse remaining kwargs
+                import re
+                location = re.search(r"for (\w+)", cmd)
+                if location:
+                    print(f"\n{architect.configure_briefing(location=location.group(1))}")
+                else:
+                    print(f"\n{architect.configure_briefing()}")
+                continue
+            
+            # Default to NL processing
             response = conversation.process(cmd)
             print(f"\n{response}")
                 
         except KeyboardInterrupt:
             print("\n\nUse 'quit' to exit.")
             break
-            
         except Exception as e:
             print(f"Error: {e}")
 
