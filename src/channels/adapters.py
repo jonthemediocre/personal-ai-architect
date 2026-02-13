@@ -130,10 +130,10 @@ class TelegramAdapter(ChannelAdapter):
     
     async def receive(self) -> List[Message]:
         """Get updates from Telegram"""
-        import:
-            r = requests
+        import requests
         
-        try requests.get(f"{self.base_url}/getUpdates")
+        try:
+            r = requests.get(f"{self.base_url}/getUpdates")
             data = r.json()
             
             if data.get("ok"):

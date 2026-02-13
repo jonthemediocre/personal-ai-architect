@@ -10,7 +10,8 @@ from datetime import datetime
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent))
+src_dir = Path(__file__).parent
+sys.path.insert(0, str(src_dir.parent))
 
 from src.council import TrinityCouncil, Proposal, AgentRole
 from src.memory import DualDomainMemory
@@ -159,6 +160,8 @@ class PersonalAIArchitect:
 
 def main():
     """Main entry point"""
+    import sys
+    
     print("=" * 60)
     print("Personal AI Architect")
     print("=" * 60)
@@ -172,60 +175,63 @@ def main():
     # Show status
     print(architect.get_status())
     
-    # Example usage
-    print("\n--- Example Commands ---")
-    print("  status          - Show system status")
-    print("  domain <name>   - Switch domain (personal/work)")
-    print("  memory <query>  - Query memory")
-    print("  remember <text> - Add to memory")
-    print("  propose <title> <desc> - Submit proposal")
-    print("  run crons       - Run scheduled jobs")
-    print("  quit            - Exit")
-    
-    # Interactive loop
-    while True:
-        try:
-            cmd = input(f"\n[{architect.active_domain}] > ").strip()
-            
-            if cmd == "quit" or cmd == "exit":
-                architect.save_state()
-                print("Goodbye!")
+    # Interactive loop (only if stdin is a terminal)
+    if sys.stdin.isatty():
+        print("\n--- Example Commands ---")
+        print("  status          - Show system status")
+        print("  domain <name>   - Switch domain (personal/work)")
+        print("  memory <query>  - Query memory")
+        print("  remember <text> - Add to memory")
+        print("  propose <title> <desc> - Submit proposal")
+        print("  run crons       - Run scheduled jobs")
+        print("  quit            - Exit\n")
+        
+        while True:
+            try:
+                cmd = input(f"[{architect.active_domain}] > ").strip()
+                
+                if cmd in ["quit", "exit", "q"]:
+                    architect.save_state()
+                    print("Goodbye!")
+                    break
+                    
+                elif cmd == "status":
+                    print(architect.get_status())
+                    
+                elif cmd.startswith("domain "):
+                    domain = cmd.split(" ", 1)[1]
+                    print(architect.switch_domain(domain))
+                    
+                elif cmd.startswith("memory "):
+                    query = cmd.split(" ", 1)[1]
+                    print(architect.query_memory(query))
+                    
+                elif cmd.startswith("remember "):
+                    content = cmd.split(" ", 1)[1]
+                    print(architect.add_memory("note", content))
+                    
+                elif cmd.startswith("propose "):
+                    parts = cmd.split(" ", 2)
+                    if len(parts) >= 3:
+                        title, description = parts[1], parts[2]
+                        print(architect.submit_proposal(title, description))
+                    else:
+                        print("Usage: propose <title> <description>")
+                        
+                elif cmd == "run crons":
+                    print(architect.run_crons())
+                    
+                else:
+                    print(f"Unknown command: {cmd}")
+                    
+            except KeyboardInterrupt:
+                print("\nUse 'quit' to exit")
                 break
                 
-            elif cmd == "status":
-                print(architect.get_status())
-                
-            elif cmd.startswith("domain "):
-                domain = cmd.split(" ", 1)[1]
-                print(architect.switch_domain(domain))
-                
-            elif cmd.startswith("memory "):
-                query = cmd.split(" ", 1)[1]
-                print(architect.query_memory(query))
-                
-            elif cmd.startswith("remember "):
-                content = cmd.split(" ", 1)[1]
-                print(architect.add_memory("note", content))
-                
-            elif cmd.startswith("propose "):
-                parts = cmd.split(" ", 2)
-                if len(parts) >= 3:
-                    title, description = parts[1], parts[2]
-                    print(architect.submit_proposal(title, description))
-                else:
-                    print("Usage: propose <title> <description>")
-                    
-            elif cmd == "run crons":
-                print(architect.run_crons())
-                
-            else:
-                print(f"Unknown command: {cmd}")
-                
-        except KeyboardInterrupt:
-            print("\nUse 'quit' to exit")
-            
-        except Exception as e:
-            print(f"Error: {e}")
+            except Exception as e:
+                print(f"Error: {e}")
+    else:
+        print("(Non-interactive mode. Run with stdin for interactive mode.)")
 
 if __name__ == "__main__":
     main()
