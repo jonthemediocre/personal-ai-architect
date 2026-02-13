@@ -4,4 +4,4 @@ Generate the Daily Brief:
 - Next 3 actions
 - Approvals needed (explicit)
 
-Save to outputs/daily_brief_YYYY-MM-DD.md and send to Telegram [Sales].
+Save to outputs/daily_brief_YYYY-MM-DD.md and send to Telegram [Admin].
