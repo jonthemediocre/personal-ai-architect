@@ -22,9 +22,48 @@ Local-first agentic operating system for personal productivity and life automati
 
 ```bash
 cd ~/vibe_coding_projects/CLAWD-BOSS/personal-ai-architect
-cp .env.example .env  # Fill secrets
-docker compose up -d
+python3 src/main.py
 ```
+
+## Source Code
+
+```
+src/
+├── __init__.py           # Package exports
+├── main.py               # Main runner
+├── council/              # Trinity Council (Strategist/Skeptic/Guardian/Moderator)
+│   └── __init__.py
+├── memory/               # Dual-domain memory system
+│   └── memory.py
+├── cron/                 # Scheduled jobs (heartbeat, backup, brief)
+│   └── scheduler.py
+└── channels/            # Channel adapters (webchat, Discord, Telegram)
+    └── adapters.py
+```
+
+## Usage
+
+| Command | Description |
+|---------|-------------|
+| `status` | Show system status |
+| `domain <name>` | Switch domain (personal/work) |
+| `memory <query>` | Query memory |
+| `remember <text>` | Add to memory |
+| `propose <title> <desc>` | Submit to council |
+| `run crons` | Execute scheduled jobs |
+
+## Running
+
+```bash
+# Interactive mode
+python3 src/main.py
+
+# Or import as module
+python3 -c "
+from src import PersonalAIArchitect
+arch = PersonalAIArchitect()
+print(arch.get_status())
+"
 
 ## Core Capabilities
 
