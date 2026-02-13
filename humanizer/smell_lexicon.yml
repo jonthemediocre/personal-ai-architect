@@ -1,0 +1,11 @@
+version: 1
+ai_smells:
+  phrases:
+    - "in summary"
+    - "as an ai"
+    - "i'm here to help"
+    - "ever-evolving landscape"
+  patterns:
+    - "excessive em dashes"
+    - "over-hedging without reason"
+    - "generic enthusiasm without specifics"

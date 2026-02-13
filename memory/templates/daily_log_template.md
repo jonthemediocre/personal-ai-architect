@@ -1,0 +1,16 @@
+# Daily Log — YYYY-MM-DD
+
+## Signals
+- ...
+
+## Actions Taken
+- ...
+
+## Failures / Errors
+- ...
+
+## Decisions
+- ...
+
+## Deltas to Memory
+- ...

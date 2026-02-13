@@ -1,0 +1,48 @@
+{
+  "version": "2026-02-12",
+  "council": {
+    "agents": [
+      { "name": "strategist", "role": "revenue_and_ops" },
+      {
+        "name": "skeptic",
+        "role": "verification_and_data_integrity",
+        "veto_conditions": [
+          "missing_primary_source_for_key_claim",
+          "numeric_mismatch_over_threshold",
+          "conflicting_sources_unreconciled"
+        ]
+      },
+      {
+        "name": "guardian",
+        "role": "security_compliance_cost",
+        "veto_conditions": [
+          "outbound_action_without_approval",
+          "budget_cap_exceeded_without_boost",
+          "credential_or_secret_exposed",
+          "unreviewed_skill_install"
+        ]
+      },
+      { "name": "moderator", "role": "reconcile_and_publish" }
+    ],
+    "consensus": {
+      "max_rounds": 2,
+      "publish_requires": {
+        "skeptic": ["PASS", "PASS_WITH_FLAGS"],
+        "guardian": ["PASS", "PASS_WITH_FLAGS"]
+      },
+      "execute_requires": {
+        "approval_confirmed": true,
+        "skeptic": ["PASS"],
+        "guardian": ["PASS"]
+      }
+    }
+  },
+  "integrity": {
+    "numeric_mismatch_threshold_pct": 2.0
+  },
+  "cost_controls": {
+    "task_token_cap": 50000,
+    "daily_usd_cap": 10.0,
+    "boost_threshold_pct": 85
+  }
+}

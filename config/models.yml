@@ -1,0 +1,14 @@
+routing:
+  high_reasoning: anthropic_opus
+  high_volume: gemini_flash
+  fallback: anthropic_opus
+
+models:
+  anthropic_opus:
+    provider: anthropic
+    name: opus
+    use_for: ["strategy", "moderation", "writing_high_stakes"]
+  gemini_flash:
+    provider: gemini
+    name: flash
+    use_for: ["classification", "parsing", "high_volume_summaries"]

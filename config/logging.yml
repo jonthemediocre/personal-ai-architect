@@ -1,0 +1,7 @@
+audit_log_path: "data/audit.jsonl"
+level: "INFO"
+redact_keys:
+  - "ANTHROPIC_API_KEY"
+  - "GEMINI_API_KEY"
+  - "TELEGRAM_BOT_TOKEN"
+  - "REPSPARK_PASSWORD"

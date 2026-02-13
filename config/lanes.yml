@@ -1,0 +1,7 @@
+lanes:
+  - name: sales
+    concurrency: 1
+  - name: admin
+    concurrency: 1
+  - name: dev
+    concurrency: 1

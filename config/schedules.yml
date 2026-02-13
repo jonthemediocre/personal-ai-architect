@@ -1,0 +1,22 @@
+jobs:
+  daily_brief:
+    cron: "07:00"
+    lane: "sales"
+  nightly_council:
+    cron: "00:00"
+    lane: "sales"
+  weekly_synthesis:
+    cron: "Sun 23:00"
+    lane: "admin"
+  drift_audit:
+    cron: "04:00"
+    lane: "admin"
+  heartbeat:
+    every_minutes: 5
+    lane: "admin"
+  backup_db:
+    every_minutes: 60
+    lane: "admin"
+  backup_git:
+    every_minutes: 60
+    lane: "admin"

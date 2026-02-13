@@ -1,0 +1,17 @@
+profiles:
+  wholesale_voice:
+    tone: "direct, buyer-friendly, professional"
+    sentence_style: "short"
+    banned_phrases:
+      - "in summary"
+      - "ever-evolving landscape"
+      - "delve"
+      - "leverage"
+      - "synergy"
+    preferred:
+      - "lead with next step"
+      - "use concrete dates/SKUs when relevant"
+      - "ask one clear question if blocked"
+channels:
+  telegram_sales: wholesale_voice
+  email_external: wholesale_voice

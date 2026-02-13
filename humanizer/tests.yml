@@ -1,0 +1,7 @@
+tests:
+  - name: removes_delve
+    input: "Let’s delve into the ever-evolving landscape of your inventory."
+    must_not_contain: ["delve", "ever-evolving landscape"]
+  - name: preserves_numbers
+    input: "Total is $2,245.50 for 53 units."
+    must_contain: ["$2,245.50", "53"]

@@ -1,0 +1,20 @@
+shell:
+  allowlist:
+    - "git status"
+    - "git diff"
+    - "pytest"
+    - "python -m src.cli"
+  denylist:
+    - "rm -rf"
+    - "curl | bash"
+    - "chmod 777"
+web_fetch:
+  allowlist_domains:
+    - "docs.anthropic.com"
+    - "code.claude.com"
+    - "docs.openclaw.ai"
+writes:
+  allowed_paths:
+    - "outputs/"
+    - "memory/"
+    - "data/backups/"

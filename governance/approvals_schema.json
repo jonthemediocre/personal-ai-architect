@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ApprovalRequest",
+  "type": "object",
+  "required": ["type", "action", "risk_level", "what_you_will_do", "sources", "confirm_text"],
+  "properties": {
+    "type": { "const": "approval_request" },
+    "action": {
+      "type": "string",
+      "enum": ["send_email", "place_order", "rotate_credentials", "write_crm", "bulk_update", "other"]
+    },
+    "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+    "what_you_will_do": { "type": "array", "items": { "type": "string" } },
+    "sources": { "type": "array", "items": { "type": "string" } },
+    "draft_payload": { "type": "object" },
+    "estimated_cost": {
+      "type": "object",
+      "properties": {
+        "tokens": { "type": "number" },
+        "usd": { "type": "number" }
+      }
+    },
+    "confirm_text": { "type": "string" }
+  }
+}

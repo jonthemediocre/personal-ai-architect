@@ -1,0 +1,7 @@
+risk_levels:
+  low:
+    examples: ["internal summaries", "draft emails not sent", "read-only queries"]
+  medium:
+    examples: ["creating CRM records", "scheduling meetings", "writing to database"]
+  high:
+    examples: ["sending external emails", "placing orders", "credential changes", "bulk updates"]
