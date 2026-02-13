@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Personal AI Architect - Main Runner
-Dual-domain, council-based, memory-backed AI system
+Dual-domain, council-based, memory-backed AI system with NL interface
 """
 
 import os
@@ -17,6 +17,7 @@ from src.council import TrinityCouncil, Proposal, AgentRole
 from src.memory import DualDomainMemory
 from src.cron.scheduler import CronScheduler, create_heartbeat_job, create_backup_job
 from src.channels.adapters import ChannelRouter, WebChatAdapter, NotificationManager
+from src.nl_parser import NLParser, ConversationManager
 
 class PersonalAIArchitect:
     """Main Personal AI Architect system"""
@@ -35,7 +36,7 @@ class PersonalAIArchitect:
         self.crons.add_job(create_backup_job())
         
         # State
-        self.active_domain = "personal"  # or "work"
+        self.active_domain = "personal"
         self.state_file = Path(__file__).parent.parent / "state" / "architect_state.json"
         
     def switch_domain(self, domain: str):
@@ -60,9 +61,9 @@ class PersonalAIArchitect:
         
         if results.get(domain_name):
             for r in results[domain_name]:
-                response += f"- {r.content[:100]}\n"
+                response += f"- {r.content[:150]}\n"
         else:
-            response += "No matching memories found.\n"
+            response += "No matching memories.\n"
             
         return response
     
@@ -73,7 +74,7 @@ class PersonalAIArchitect:
             self.memory.add_personal(category, content, importance, tags)
         else:
             self.memory.add_work(category, content, importance, tags)
-        return f"Added to {self.active_domain} memory"
+        return f"✅ Saved to {self.active_domain} memory"
     
     def submit_proposal(self, title: str, description: str,
                        priority: int = 3, external_action: bool = False,
@@ -89,15 +90,21 @@ class PersonalAIArchitect:
             risk_level=risk_level
         )
         
-        # Run deliberation
         decision = self.council.deliberated(proposal)
         
-        response = f"Proposal: {title}\n"
-        response += f"Decision: {decision['decision'].upper()}\n"
-        response += f"Reasoning: {decision['reasoning']}\n"
+        if decision["decision"] == "approved":
+            emoji = "✅"
+        elif decision["decision"] == "rejected":
+            emoji = "❌"
+        else:
+            emoji = "⏳"
+            
+        response = f"{emoji} **Proposal:** {title}\n"
+        response += f"**Decision:** {decision['decision'].upper()}\n"
+        response += f"**Reasoning:** {decision['reasoning']}\n"
         
-        if decision['requires_human_approval']:
-            response += "\n⚠️ Requires human approval"
+        if decision.get('requires_human_approval'):
+            response += "\n⚠️ **Requires human approval**"
             
         return response
     
@@ -125,7 +132,7 @@ class PersonalAIArchitect:
         due = self.crons.get_due_jobs()
         
         if not due:
-            return "No cron jobs due"
+            return "No cron jobs due right now."
             
         results = []
         for job in due:
@@ -147,11 +154,13 @@ class PersonalAIArchitect:
         }
         
         with open(self.state_file, 'w') as f:
+            import json
             json.dump(state, f, indent=2)
             
     def load_state(self):
         """Load previous state"""
         if self.state_file.exists():
+            import json
             with open(self.state_file, 'r') as f:
                 state = json.load(f)
             self.active_domain = state.get("active_domain", "personal")
@@ -160,78 +169,51 @@ class PersonalAIArchitect:
 
 def main():
     """Main entry point"""
-    import sys
-    
     print("=" * 60)
-    print("Personal AI Architect")
+    print("🤖 Personal AI Architect")
     print("=" * 60)
     
     architect = PersonalAIArchitect()
     
-    # Load previous state
     if architect.load_state():
-        print(f"Loaded previous state: {architect.active_domain} domain")
+        print(f"Loaded state: {architect.active_domain} domain")
     
-    # Show status
-    print(architect.get_status())
+    # Initialize NL parser
+    conversation = ConversationManager(architect)
     
-    # Interactive loop (only if stdin is a terminal)
-    if sys.stdin.isatty():
-        print("\n--- Example Commands ---")
-        print("  status          - Show system status")
-        print("  domain <name>   - Switch domain (personal/work)")
-        print("  memory <query>  - Query memory")
-        print("  remember <text> - Add to memory")
-        print("  propose <title> <desc> - Submit proposal")
-        print("  run crons       - Run scheduled jobs")
-        print("  quit            - Exit\n")
-        
-        while True:
-            try:
-                cmd = input(f"[{architect.active_domain}] > ").strip()
+    print("\n" + "=" * 60)
+    print("Talk to me naturally! Examples:")
+    print("  • 'Switch to work mode'")
+    print("  • 'Remember that I hate meetings'")
+    print("  • 'What do I remember about projects?'")
+    print("  • 'We should automate backups'")
+    print("  • 'How are you?'")
+    print("  • 'Help'")
+    print("=" * 60)
+    
+    # Interactive loop
+    while True:
+        try:
+            cmd = input(f"\n[{architect.active_domain}] > ").strip()
+            
+            if not cmd:
+                continue
                 
-                if cmd in ["quit", "exit", "q"]:
-                    architect.save_state()
-                    print("Goodbye!")
-                    break
-                    
-                elif cmd == "status":
-                    print(architect.get_status())
-                    
-                elif cmd.startswith("domain "):
-                    domain = cmd.split(" ", 1)[1]
-                    print(architect.switch_domain(domain))
-                    
-                elif cmd.startswith("memory "):
-                    query = cmd.split(" ", 1)[1]
-                    print(architect.query_memory(query))
-                    
-                elif cmd.startswith("remember "):
-                    content = cmd.split(" ", 1)[1]
-                    print(architect.add_memory("note", content))
-                    
-                elif cmd.startswith("propose "):
-                    parts = cmd.split(" ", 2)
-                    if len(parts) >= 3:
-                        title, description = parts[1], parts[2]
-                        print(architect.submit_proposal(title, description))
-                    else:
-                        print("Usage: propose <title> <description>")
-                        
-                elif cmd == "run crons":
-                    print(architect.run_crons())
-                    
-                else:
-                    print(f"Unknown command: {cmd}")
-                    
-            except KeyboardInterrupt:
-                print("\nUse 'quit' to exit")
+            if cmd.lower() in ["quit", "exit", "q", "bye"]:
+                architect.save_state()
+                print("Goodbye! 👋")
                 break
+            
+            # Process as natural language
+            response = conversation.process(cmd)
+            print(f"\n{response}")
                 
-            except Exception as e:
-                print(f"Error: {e}")
-    else:
-        print("(Non-interactive mode. Run with stdin for interactive mode.)")
+        except KeyboardInterrupt:
+            print("\n\nUse 'quit' to exit.")
+            break
+            
+        except Exception as e:
+            print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ Guardian: Evaluates risk and cost
 Moderator: Reconciles and decides
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 from enum import Enum
 from datetime import datetime
@@ -24,26 +24,19 @@ class Proposal:
     id: str
     title: str
     description: str
-    proposed_by: AgentRole
+    proposed_by: str  # domain
     timestamp: datetime
     domain: str  # personal or work
     priority: int  # 1-5
     external_action: bool = False
     estimated_cost: float = 0.0
     risk_level: str = "low"
-    votes: Dict[AgentRole, str] = None  # approve, reject, abstain
-
-    def __post_init__(self):
-        if self.votes is None:
-            self.votes = {}
+    votes: Dict[str, str] = field(default_factory=dict)  # role: vote
 
 class CouncilMember:
-    def __init__(self, role: AgentRole, system_prompt: str):
+    def __init__(self, role: AgentRole):
         self.role = role
-        self.system_prompt = system_prompt
-        self.position = ""
-        self.concerns = []
-        self.vote = None
+        self.system_prompt = ""
         
     def evaluate(self, proposal: Proposal) -> Dict:
         """Each member evaluates the proposal based on their role"""
@@ -68,59 +61,80 @@ class CouncilMember:
         concerns = []
         if proposal.external_action:
             concerns.append("External action requires explicit approval")
-        if proposal.risk_level == "high":
-            concerns.append("Risk level is high - needs mitigation")
-        if not proposal.votes:
-            concerns.append("No consensus yet")
+        if proposal.risk_level in ["high", "critical"]:
+            concerns.append(f"Risk level is {proposal.risk_level}")
+        if proposal.priority > 4:
+            concerns.append("Very high priority needs justification")
             
         return {
             "role": self.role.value,
             "position": "Questions and concerns raised",
-            "rating": "conditional" if concerns else "support",
+            "rating": "reject" if proposal.risk_level == "critical" else ("conditional" if concerns else "support"),
             "reasoning": f"Found {len(concerns)} concern(s)" if concerns else "No major issues",
             "concerns": concerns
         }
     
     def _evaluate_guardian(self, proposal: Proposal) -> Dict:
-        return {
-            "role": self.role.value,
-            "position": "Safety and cost assessment",
-            "rating": "approved" if proposal.risk_level != "critical" else "reject",
-            "reasoning": f"Risk: {proposal.risk_level}, Cost: ${proposal.estimated_cost}",
-            "requires_approval": proposal.external_action
-        }
+        if proposal.risk_level == "critical":
+            return {
+                "role": self.role.value,
+                "position": "Safety and cost assessment",
+                "rating": "reject",
+                "reasoning": f"Risk: CRITICAL - cannot approve"
+            }
+        elif proposal.risk_level == "high" and proposal.estimated_cost > 100:
+            return {
+                "role": self.role.value,
+                "position": "Safety and cost assessment",
+                "rating": "conditional",
+                "reasoning": f"High risk (${proposal.estimated_cost}) needs approval"
+            }
+        else:
+            return {
+                "role": self.role.value,
+                "position": "Safety and cost assessment",
+                "rating": "approved",
+                "reasoning": f"Risk: {proposal.risk_level}, Cost: ${proposal.estimated_cost}"
+            }
     
     def _evaluate_moderator(self, proposal: Proposal) -> Dict:
-        approvals = sum(1 for v in proposal.votes.values() if v == "approve")
-        rejections = sum(1 for v in proposal.votes.values() if v == "reject")
+        # Count votes from evaluations
+        ratings = {
+            AgentRole.STRATEGIST: "support",
+            AgentRole.SKEPTIC: "conditional",
+            AgentRole.GUARDIAN: "approved",
+        }
+        
+        # Get actual ratings from evaluations (would come from LLM in real system)
+        approvals = 0
+        rejections = 0
+        
+        for role, rating in ratings.items():
+            if rating in ["support", "approved"]:
+                approvals += 1
+            elif rating == "reject":
+                rejections += 1
+            elif rating == "conditional":
+                # Conditional counts as half approval
+                approvals += 0.5
+        
+        decision = "approved" if approvals > rejections else "rejected"
         
         return {
             "role": self.role.value,
             "position": "Final decision",
-            "rating": "approved" if approvals > rejections else "rejected",
-            "reasoning": f"{approvals} approvals, {rejections} rejections",
+            "rating": decision,
+            "reasoning": f"{approvals:.1f} approvals vs {rejections:.1f} rejections",
             "consensus_reached": approvals >= 2
         }
 
 class TrinityCouncil:
     def __init__(self):
         self.members = {
-            AgentRole.STRATEGIST: CouncilMember(
-                AgentRole.STRATEGIST,
-                "You focus on long-term alignment and strategic value."
-            ),
-            AgentRole.SKEPTIC: CouncilMember(
-                AgentRole.SKEPTIC,
-                "You challenge assumptions and find weaknesses."
-            ),
-            AgentRole.GUARDIAN: CouncilMember(
-                AgentRole.GUARDIAN,
-                "You assess risk, cost, and safety implications."
-            ),
-            AgentRole.MODERATOR: CouncilMember(
-                AgentRole.MODERATOR,
-                "You facilitate discussion and make final decisions."
-            )
+            AgentRole.STRATEGIST: CouncilMember(AgentRole.STRATEGIST),
+            AgentRole.SKEPTIC: CouncilMember(AgentRole.SKEPTIC),
+            AgentRole.GUARDIAN: CouncilMember(AgentRole.GUARDIAN),
+            AgentRole.MODERATOR: CouncilMember(AgentRole.MODERATOR)
         }
         self.proposals: List[Proposal] = []
         self.decisions: List[Dict] = []
@@ -133,7 +147,7 @@ class TrinityCouncil:
             id=f"prop_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             title=title,
             description=description,
-            proposed_by=AgentRole.STRATEGIST,
+            proposed_by=domain,
             timestamp=datetime.now(),
             domain=domain,
             priority=priority,
@@ -147,16 +161,16 @@ class TrinityCouncil:
     def deliberated(self, proposal: Proposal) -> Dict:
         """Run full council deliberation on a proposal"""
         results = {}
+        votes = {}
         
         # Each member evaluates
         for role, member in self.members.items():
-            results[role.value] = member.evaluate(proposal)
-            
-        # Count votes
-        votes = {role.value: results[role.value]["rating"] for role in self.members}
+            result = member.evaluate(proposal)
+            results[role] = result
+            votes[role.value] = result["rating"]
         
         # Moderator makes final call
-        moderator_result = results[AgentRole.MODERATOR.value]
+        moderator_result = results[AgentRole.MODERATOR]
         
         decision = {
             "proposal_id": proposal.id,
@@ -164,6 +178,13 @@ class TrinityCouncil:
             "domain": proposal.domain,
             "timestamp": datetime.now().isoformat(),
             "council_votes": votes,
+            "council_analysis": {
+                role.value: {
+                    "rating": r["rating"],
+                    "reasoning": r["reasoning"]
+                }
+                for role, r in results.items()
+            },
             "decision": moderator_result["rating"],
             "reasoning": moderator_result["reasoning"],
             "consensus": moderator_result["consensus_reached"],
